@@ -1,0 +1,578 @@
+[1mdiff --git a/distancia_xbee_esp32.py b/distancia_xbee_esp32.py[m
+[1mdeleted file mode 100644[m
+[1mindex c2e282a..0000000[m
+[1m--- a/distancia_xbee_esp32.py[m
+[1m+++ /dev/null[m
+[36m@@ -1,193 +0,0 @@[m
+[31m-import time[m
+[31m-from datetime import datetime[m
+[31m-from zoneinfo import ZoneInfo[m
+[31m-[m
+[31m-import serial[m
+[31m-[m
+[31m-[m
+[31m-# ************************* CONFIGURACIÓN ************************* #[m
+[31m-[m
+[31m-# Puerto del adaptador USB donde está conectado el XBee.[m
+[31m-PUERTO_XBEE = "/dev/ttyUSB0"[m
+[31m-BAUDIOS = 9600[m
+[31m-[m
+[31m-# Zona horaria de Medellín, Colombia.[m
+[31m-ZONA_HORARIA = ZoneInfo("America/Bogota")[m
+[31m-[m
+[31m-DISTANCIA_MAXIMA_MM = 9998[m
+[31m-[m
+[31m-[m
+[31m-# ************************ VARIABLES GLOBALES ********************* #[m
+[31m-[m
+[31m-puertoXBee = None[m
+[31m-secuenciaAnterior = None[m
+[31m-[m
+[31m-[m
+[31m-# ***************************** XBEE ******************************* #[m
+[31m-[m
+[31m-def abrirPuertoXBee():[m
+[31m-    global puertoXBee[m
+[31m-[m
+[31m-    puertoXBee = serial.Serial([m
+[31m-        port=PUERTO_XBEE,[m
+[31m-        baudrate=BAUDIOS,[m
+[31m-        bytesize=serial.EIGHTBITS,[m
+[31m-        parity=serial.PARITY_NONE,[m
+[31m-        stopbits=serial.STOPBITS_ONE,[m
+[31m-        timeout=0.250[m
+[31m-    )[m
+[31m-[m
+[31m-[m
+[31m-def configurarXBee():[m
+[31m-    print()[m
+[31m-    print("Iniciando comunicación con el XBee...")[m
+[31m-[m
+[31m-    time.sleep(1)[m
+[31m-    puertoXBee.reset_input_buffer()[m
+[31m-[m
+[31m-    print("XBee listo")[m
+[31m-[m
+[31m-[m
+[31m-def verificarSecuencia(secuencia):[m
+[31m-    global secuenciaAnterior[m
+[31m-[m
+[31m-    if secuenciaAnterior is None:[m
+[31m-        secuenciaAnterior = secuencia[m
+[31m-        return[m
+[31m-[m
+[31m-    if secuencia == secuenciaAnterior:[m
+[31m-        print(f"Aviso: se repitió la secuencia {secuencia}.")[m
+[31m-[m
+[31m-    elif secuenciaAnterior == 0xFFFFFFFF and secuencia == 0:[m
+[31m-        # Desbordamiento normal de una variable uint32_t.[m
+[31m-        pass[m
+[31m-[m
+[31m-    elif secuencia > secuenciaAnterior + 1:[m
+[31m-        cantidadPerdida = secuencia - secuenciaAnterior - 1[m
+[31m-[m
+[31m-        print([m
+[31m-            "Aviso: posiblemente se perdieron "[m
+[31m-            f"{cantidadPerdida} mensaje(s)."[m
+[31m-        )[m
+[31m-[m
+[31m-    elif secuencia < secuenciaAnterior:[m
+[31m-        print([m
+[31m-            "Aviso: la secuencia retrocedió. "[m
+[31m-            "La ESP32 pudo haberse reiniciado."[m
+[31m-        )[m
+[31m-[m
+[31m-    secuenciaAnterior = secuencia[m
+[31m-[m
+[31m-[m
+[31m-def recibirXBee():[m
+[31m-    while puertoXBee.in_waiting > 0:[m
+[31m-        # La ESP32 termina cada mensaje con un salto de línea.[m
+[31m-        # Ejemplo: D,79,527,0\n[m
+[31m-        linea = puertoXBee.readline()[m
+[31m-        linea = linea.decode("ascii", errors="replace").strip()[m
+[31m-[m
+[31m-        if not linea:[m
+[31m-            continue[m
+[31m-[m
+[31m-        print()[m
+[31m-        print(f"XBee -> Raspberry: {linea}")[m
+[31m-[m
+[31m-        campos = linea.split(",")[m
+[31m-[m
+[31m-        if len(campos) != 4:[m
+[31m-            print("Mensaje XBee no válido: se esperaban cuatro campos.")[m
+[31m-            continue[m
+[31m-[m
+[31m-        tipoMensaje = campos[0][m
+[31m-[m
+[31m-        if tipoMensaje != "D":[m
+[31m-            print("Mensaje XBee no válido: el primer campo debe ser D.")[m
+[31m-            continue[m
+[31m-[m
+[31m-        try:[m
+[31m-            secuencia = int(campos[1])[m
+[31m-            distanciaMm = int(campos[2])[m
+[31m-            estado = int(campos[3])[m
+[31m-[m
+[31m-        except ValueError:[m
+[31m-            print([m
+[31m-                "Mensaje XBee no válido: secuencia, distancia "[m
+[31m-                "y estado deben ser números enteros."[m
+[31m-            )[m
+[31m-            continue[m
+[31m-[m
+[31m-        fechaHora = datetime.now(ZONA_HORARIA)[m
+[31m-[m
+[31m-        if estado == 0:[m
+[31m-            if distanciaMm < 0 or distanciaMm > DISTANCIA_MAXIMA_MM:[m
+[31m-                print([m
+[31m-                    "Mensaje XBee no válido: el estado 0 requiere "[m
+[31m-                    "una distancia entre 0 y 9998 mm."[m
+[31m-                )[m
+[31m-                continue[m
+[31m-[m
+[31m-            verificarSecuencia(secuencia)[m
+[31m-[m
+[31m-            print(f"Fecha y hora: {fechaHora:%Y-%m-%d %H:%M:%S}")[m
+[31m-            print(f"Secuencia: {secuencia}")[m
+[31m-            print([m
+[31m-                f"Distancia: {distanciaMm} mm "[m
+[31m-                f"({distanciaMm / 1000.0:.3f} m)"[m
+[31m-            )[m
+[31m-[m
+[31m-            if distanciaMm < 500:[m
+[31m-                print([m
+[31m-                    "Aviso: está por debajo del rango "[m
+[31m-                    "especificado del MB7388."[m
+[31m-                )[m
+[31m-[m
+[31m-        elif estado == 1 and distanciaMm == 9999:[m
+[31m-            verificarSecuencia(secuencia)[m
+[31m-[m
+[31m-            print(f"Fecha y hora: {fechaHora:%Y-%m-%d %H:%M:%S}")[m
+[31m-            print(f"Secuencia: {secuencia}")[m
+[31m-            print("MB7388: sin objetivo detectado.")[m
+[31m-[m
+[31m-        elif estado == 2 and distanciaMm == -1:[m
+[31m-            verificarSecuencia(secuencia)[m
+[31m-[m
+[31m-            print(f"Fecha y hora: {fechaHora:%Y-%m-%d %H:%M:%S}")[m
+[31m-            print(f"Secuencia: {secuencia}")[m
+[31m-            print("MB7388: no se recibió una trama válida.")[m
+[31m-[m
+[31m-        else:[m
+[31m-            print([m
+[31m-                "Mensaje XBee no válido: la distancia "[m
+[31m-                "no corresponde con el estado recibido."[m
+[31m-            )[m
+[31m-[m
+[31m-[m
+[31m-# ************************ PROGRAMA PRINCIPAL ********************* #[m
+[31m-[m
+[31m-def main():[m
+[31m-    try:[m
+[31m-        abrirPuertoXBee()[m
+[31m-        configurarXBee()[m
+[31m-[m
+[31m-        print()[m
+[31m-        print("Iniciando recepción de datos de distancia...")[m
+[31m-[m
+[31m-        while True:[m
+[31m-            recibirXBee()[m
+[31m-[m
+[31m-            # Evita mantener innecesariamente ocupado el procesador.[m
+[31m-            time.sleep(0.005)[m
+[31m-[m
+[31m-    except KeyboardInterrupt:[m
+[31m-        print("\nPrograma detenido.")[m
+[31m-[m
+[31m-    except (serial.SerialException, OSError, ValueError) as error:[m
+[31m-        print(f"\nError: {error}")[m
+[31m-[m
+[31m-    finally:[m
+[31m-        if puertoXBee is not None and puertoXBee.is_open:[m
+[31m-            puertoXBee.close()[m
+[31m-[m
+[31m-[m
+[31m-if __name__ == "__main__":[m
+[31m-    main()[m
+\ No newline at end of file[m
+[1mdiff --git a/distancia_xbee_esp32_v2_dashb_plus_csv.py b/distancia_xbee_esp32_v2_dashb_plus_csv.py[m
+[1mdeleted file mode 100644[m
+[1mindex a8c882e..0000000[m
+[1m--- a/distancia_xbee_esp32_v2_dashb_plus_csv.py[m
+[1m+++ /dev/null[m
+[36m@@ -1,567 +0,0 @@[m
+[31m-import csv[m
+[31m-import logging[m
+[31m-import time[m
+[31m-from collections import Counter[m
+[31m-from datetime import datetime[m
+[31m-from pathlib import Path[m
+[31m-from zoneinfo import ZoneInfo[m
+[31m-[m
+[31m-import serial[m
+[31m-from tb_gateway_mqtt import TBDeviceMqttClient[m
+[31m-[m
+[31m-[m
+[31m-# ************************* CONFIGURACIÓN ************************* #[m
+[31m-[m
+[31m-# Puerto del adaptador USB donde está conectado el XBee.[m
+[31m-PUERTO_XBEE = "/dev/ttyUSB0"[m
+[31m-BAUDIOS = 9600[m
+[31m-[m
+[31m-# Zona horaria de Medellín, Colombia.[m
+[31m-# Se usa explícitamente para no depender de la configuración de la Raspberry.[m
+[31m-ZONA_HORARIA = ZoneInfo("America/Bogota")[m
+[31m-[m
+[31m-# Carpetas y nombre base de los archivos.[m
+[31m-# Los TXT quedan sueltos en datos_sensores.[m
+[31m-# Los CSV quedan dentro de datos_sensores/csv.[m
+[31m-CARPETA_DATOS = "datos_sensores"[m
+[31m-CARPETA_CSV = "csv"[m
+[31m-NOMBRE_BASE_ARCHIVO = "mediciones_distancia"[m
+[31m-[m
+[31m-# Cada cuánto se calcula la moda, se guarda una fila y se envía al dashboard.[m
+[31m-FRECUENCIA_GUARDADO_SEGUNDOS = 30.0[m
+[31m-[m
+[31m-# Cada cuánto se crea un archivo nuevo.[m
+[31m-# Opciones: "hora", "diario", "mensual" o "unico".[m
+[31m-FRECUENCIA_ARCHIVO = "hora"[m
+[31m-[m
+[31m-DISTANCIA_MAXIMA_MM = 9998[m
+[31m-[m
+[31m-# Configuración de ThingsBoard Cloud.[m
+[31m-ACCESS_TOKEN = "P4YiIHsuZmtKuAGO0LGu"[m
+[31m-THINGSBOARD_SERVER = "mqtt.thingsboard.cloud"[m
+[31m-[m
+[31m-logging.basicConfig(level=logging.WARNING)[m
+[31m-[m
+[31m-[m
+[31m-# ************************ VARIABLES GLOBALES ********************* #[m
+[31m-[m
+[31m-puertoXBee = None[m
+[31m-client = None[m
+[31m-secuenciaAnterior = None[m
+[31m-[m
+[31m-# Mediciones recibidas durante el intervalo actual de 30 segundos.[m
+[31m-distanciasIntervaloMm = [][m
+[31m-sinObjetivoEnIntervalo = False[m
+[31m-[m
+[31m-tiempoGuardadoAnterior = 0.0[m
+[31m-[m
+[31m-# Contadores acumulativos del archivo actual.[m
+[31m-sufijoCalidadActual = None[m
+[31m-valoresDistanciaTotalesArchivo = 0[m
+[31m-valoresDistanciaCorrectosArchivo = 0[m
+[31m-[m
+[31m-ENCABEZADOS_CSV = [[m
+[31m-    "fecha",[m
+[31m-    "hora",[m
+[31m-    "distancia_moda_mm",[m
+[31m-    "porcentaje_datos_correctos_distancia"[m
+[31m-][m
+[31m-[m
+[31m-# Nombres y anchos utilizados únicamente en el archivo TXT.[m
+[31m-COLUMNAS_VISUALES = [[m
+[31m-    ("FECHA", 10, "<"),[m
+[31m-    ("HORA", 8, "<"),[m
+[31m-    ("DISTANCIA (mm)", 15, ">"),[m
+[31m-    ("DIST. CORRECTA (%)", 19, ">")[m
+[31m-][m
+[31m-[m
+[31m-[m
+[31m-# ***************************** XBEE ******************************* #[m
+[31m-[m
+[31m-def abrirPuertoXBee():[m
+[31m-    global puertoXBee[m
+[31m-[m
+[31m-    puertoXBee = serial.Serial([m
+[31m-        port=PUERTO_XBEE,[m
+[31m-        baudrate=BAUDIOS,[m
+[31m-        bytesize=serial.EIGHTBITS,[m
+[31m-        parity=serial.PARITY_NONE,[m
+[31m-        stopbits=serial.STOPBITS_ONE,[m
+[31m-        timeout=0.250[m
+[31m-    )[m
+[31m-[m
+[31m-[m
+[31m-def configurarXBee():[m
+[31m-    print()[m
+[31m-    print("Iniciando comunicación con el XBee...")[m
+[31m-[m
+[31m-    time.sleep(1)[m
+[31m-    puertoXBee.reset_input_buffer()[m
+[31m-[m
+[31m-    print("XBee listo")[m
+[31m-[m
+[31m-[m
+[31m-def verificarSecuencia(secuencia):[m
+[31m-    global secuenciaAnterior[m
+[31m-[m
+[31m-    if secuenciaAnterior is None:[m
+[31m-        secuenciaAnterior = secuencia[m
+[31m-        return[m
+[31m-[m
+[31m-    if secuencia == secuenciaAnterior:[m
+[31m-        print(f"Aviso: se repitió la secuencia {secuencia}.")[m
+[31m-[m
+[31m-    elif secuenciaAnterior == 0xFFFFFFFF and secuencia == 0:[m
+[31m-        # Desbordamiento normal de una variable uint32_t.[m
+[31m-        pass[m
+[31m-[m
+[31m-    elif secuencia > secuenciaAnterior + 1:[m
+[31m-        cantidadPerdida = secuencia - secuenciaAnterior - 1[m
+[31m-[m
+[31m-        print([m
+[31m-            "Aviso: posiblemente se perdieron "[m
+[31m-            f"{cantidadPerdida} mensaje(s)."[m
+[31m-        )[m
+[31m-[m
+[31m-    elif secuencia < secuenciaAnterior:[m
+[31m-        print([m
+[31m-            "Aviso: la secuencia retrocedió. "[m
+[31m-            "La ESP32 pudo haberse reiniciado."[m
+[31m-        )[m
+[31m-[m
+[31m-    secuenciaAnterior = secuencia[m
+[31m-[m
+[31m-[m
+[31m-def recibirXBee():[m
+[31m-    global sinObjetivoEnIntervalo[m
+[31m-[m
+[31m-    while puertoXBee.in_waiting > 0:[m
+[31m-        # La ESP32 termina cada mensaje con un salto de línea.[m
+[31m-        # Ejemplo: D,79,527,0\n[m
+[31m-        linea = puertoXBee.readline()[m
+[31m-        linea = linea.decode("ascii", errors="replace").strip()[m
+[31m-[m
+[31m-        if not linea:[m
+[31m-            continue[m
+[31m-[m
+[31m-        print()[m
+[31m-        print(f"XBee -> Raspberry: {linea}")[m
+[31m-[m
+[31m-        campos = linea.split(",")[m
+[31m-[m
+[31m-        if len(campos) != 4:[m
+[31m-            print("Mensaje XBee no válido: se esperaban cuatro campos.")[m
+[31m-            continue[m
+[31m-[m
+[31m-        if campos[0] != "D":[m
+[31m-            print("Mensaje XBee no válido: el primer campo debe ser D.")[m
+[31m-            continue[m
+[31m-[m
+[31m-        try:[m
+[31m-            secuencia = int(campos[1])[m
+[31m-            distanciaMm = int(campos[2])[m
+[31m-            estado = int(campos[3])[m
+[31m-[m
+[31m-        except ValueError:[m
+[31m-            print([m
+[31m-                "Mensaje XBee no válido: secuencia, distancia "[m
+[31m-                "y estado deben ser números enteros."[m
+[31m-            )[m
+[31m-            continue[m
+[31m-[m
+[31m-        if estado == 0 and 0 <= distanciaMm <= DISTANCIA_MAXIMA_MM:[m
+[31m-            verificarSecuencia(secuencia)[m
+[31m-[m
+[31m-            # Conserva todas las distancias válidas recibidas durante[m
+[31m-            # el intervalo para calcular posteriormente la moda.[m
+[31m-            distanciasIntervaloMm.append(distanciaMm)[m
+[31m-[m
+[31m-            print(f"Secuencia: {secuencia}")[m
+[31m-            print([m
+[31m-                f"Distancia: {distanciaMm} mm "[m
+[31m-                f"({distanciaMm / 1000.0:.3f} m)"[m
+[31m-            )[m
+[31m-[m
+[31m-            if distanciaMm < 500:[m
+[31m-                print([m
+[31m-                    "Aviso: está por debajo del rango "[m
+[31m-                    "especificado del MB7388."[m
+[31m-                )[m
+[31m-[m
+[31m-        elif estado == 1 and distanciaMm == 9999:[m
+[31m-            verificarSecuencia(secuencia)[m
+[31m-            sinObjetivoEnIntervalo = True[m
+[31m-            print(f"Secuencia: {secuencia}")[m
+[31m-            print("MB7388: sin objetivo detectado.")[m
+[31m-[m
+[31m-        elif estado == 2 and distanciaMm == -1:[m
+[31m-            verificarSecuencia(secuencia)[m
+[31m-            print(f"Secuencia: {secuencia}")[m
+[31m-            print("MB7388: no se recibió una trama válida.")[m
+[31m-[m
+[31m-        else:[m
+[31m-            print([m
+[31m-                "Mensaje XBee no válido: la distancia "[m
+[31m-                "no corresponde con el estado recibido."[m
+[31m-            )[m
+[31m-[m
+[31m-[m
+[31m-# *************************** THINGSBOARD ************************* #[m
+[31m-[m
+[31m-def configurarThingsBoard():[m
+[31m-    global client[m
+[31m-[m
+[31m-    print()[m
+[31m-    print("Conectando con ThingsBoard...")[m
+[31m-[m
+[31m-    try:[m
+[31m-        client = TBDeviceMqttClient([m
+[31m-            THINGSBOARD_SERVER,[m
+[31m-            username=ACCESS_TOKEN[m
+[31m-        )[m
+[31m-        client.connect()[m
+[31m-        print("ThingsBoard conectado")[m
+[31m-[m
+[31m-    except Exception as error:[m
+[31m-        # El registro local puede continuar aunque Internet no esté disponible.[m
+[31m-        client = None[m
+[31m-        print(f"Aviso: no fue posible conectar con ThingsBoard: {error}")[m
+[31m-[m
+[31m-[m
+[31m-def enviarDatosThingsBoard([m
+[31m-    fechaHora,[m
+[31m-    distanciaModaMm,[m
+[31m-    porcentajeDistancia[m
+[31m-):[m
+[31m-    global client[m
+[31m-[m
+[31m-    valores = {[m
+[31m-        "distancia_moda_mm": distanciaModaMm,[m
+[31m-        "porcentaje_datos_correctos_distancia": porcentajeDistancia[m
+[31m-    }[m
+[31m-[m
+[31m-    # Un valor inexistente no se envía como telemetría.[m
+[31m-    valores = {[m
+[31m-        nombre: valor[m
+[31m-        for nombre, valor in valores.items()[m
+[31m-        if valor is not None[m
+[31m-    }[m
+[31m-[m
+[31m-    if not valores:[m
+[31m-        return[m
+[31m-[m
+[31m-    # Si una conexión anterior falló, intenta recuperarla en el siguiente[m
+[31m-    # intervalo de guardado sin detener el registro local.[m
+[31m-    if client is None:[m
+[31m-        configurarThingsBoard()[m
+[31m-[m
+[31m-    if client is None:[m
+[31m-        return[m
+[31m-[m
+[31m-    telemetria = {[m
+[31m-        "ts": int(fechaHora.timestamp() * 1000),[m
+[31m-        "values": valores[m
+[31m-    }[m
+[31m-[m
+[31m-    try:[m
+[31m-        client.send_telemetry(telemetria)[m
+[31m-[m
+[31m-    except Exception as error:[m
+[31m-        print(f"Aviso: no se pudo enviar la telemetría: {error}")[m
+[31m-[m
+[31m-        try:[m
+[31m-            client.disconnect()[m
+[31m-        except Exception:[m
+[31m-            pass[m
+[31m-[m
+[31m-        client = None[m
+[31m-[m
+[31m-[m
+[31m-def cerrarThingsBoard():[m
+[31m-    if client is not None:[m
+[31m-        try:[m
+[31m-            client.disconnect()[m
+[31m-        except Exception as error:[m
+[31m-            print(f"Aviso al cerrar ThingsBoard: {error}")[m
+[31m-[m
+[31m-[m
+[31m-# ************************ REGISTRO DE DATOS ********************** #[m
+[31m-[m
+[31m-def calcularModaDistancia():[m
+[31m-    if not distanciasIntervaloMm:[m
+[31m-        # Si hubo respuestas 9999, pero ninguna distancia válida,[m
+[31m-        # conserva la indicación de que no se detectó un objetivo.[m
+[31m-        if sinObjetivoEnIntervalo:[m
+[31m-            return 9999[m
+[31m-[m
+[31m-        # No se recibió ninguna distancia válida durante el intervalo.[m
+[31m-        return None[m
+[31m-[m
+[31m-    frecuencias = Counter(distanciasIntervaloMm)[m
+[31m-    frecuenciaMaxima = max(frecuencias.values())[m
+[31m-[m
+[31m-    modas = {[m
+[31m-        distancia[m
+[31m-        for distancia, frecuencia in frecuencias.items()[m
+[31m-        if frecuencia == frecuenciaMaxima[m
+[31m-    }[m
+[31m-[m
+[31m-    # Si hay empate, selecciona la moda que apareció más recientemente.[m
+[31m-    for distancia in reversed(distanciasIntervaloMm):[m
+[31m-        if distancia in modas:[m
+[31m-            return distancia[m
+[31m-[m
+[31m-[m
+[31m-def obtenerSufijoArchivo(fechaHora):[m
+[31m-    if FRECUENCIA_ARCHIVO == "hora":[m
+[31m-        return fechaHora.strftime("%Y-%m-%d_%H")[m
+[31m-[m
+[31m-    if FRECUENCIA_ARCHIVO == "diario":[m
+[31m-        return fechaHora.strftime("%Y-%m-%d")[m
+[31m-[m
+[31m-    if FRECUENCIA_ARCHIVO == "mensual":[m
+[31m-        return fechaHora.strftime("%Y-%m")[m
+[31m-[m
+[31m-    if FRECUENCIA_ARCHIVO == "unico":[m
+[31m-        return ""[m
+[31m-[m
+[31m-    raise ValueError([m
+[31m-        "FRECUENCIA_ARCHIVO debe ser: "[m
+[31m-        "'hora', 'diario', 'mensual' o 'unico'."[m
+[31m-    )[m
+[31m-[m
+[31m-[m
+[31m-def obtenerRutaArchivo(fechaHora, extension):[m
+[31m-    carpetaPrograma = Path(__file__).resolve().parent[m
+[31m-    carpetaDatos = carpetaPrograma / CARPETA_DATOS[m
+[31m-    carpetaDatos.mkdir(parents=True, exist_ok=True)[m
+[31m-[m
+[31m-    sufijo = obtenerSufijoArchivo(fechaHora)[m
+[31m-[m
+[31m-    if sufijo:[m
+[31m-        nombreArchivo = f"{NOMBRE_BASE_ARCHIVO}_{sufijo}.{extension}"[m
+[31m-    else:[m
+[31m-        nombreArchivo = f"{NOMBRE_BASE_ARCHIVO}.{extension}"[m
+[31m-[m
+[31m-    if extension == "csv":[m
+[31m-        carpetaCsv = carpetaDatos / CARPETA_CSV[m
+[31m-        carpetaCsv.mkdir(parents=True, exist_ok=True)[m
+[31m-        return carpetaCsv / nombreArchivo[m
+[31m-[m
+[31m-    return carpetaDatos / nombreArchivo[m
+[31m-[m
+[31m-[m
+[31m-def esModaDistanciaValida(distanciaModaMm):[m
+[31m-    return ([m
+[31m-        isinstance(distanciaModaMm, (int, float))[m
+[31m-        and 0 <= distanciaModaMm <= DISTANCIA_MAXIMA_MM[m
+[31m-    )[m
+[31m-[m
+[31m-[m
+[31m-def cargarContadoresCalidadDesdeCsv(rutaCsv):[m
+[31m-    global valoresDistanciaTotalesArchivo[m
+[31m-    global valoresDistanciaCorrectosArchivo[m
+[31m-[m
+[31m-    if not rutaCsv.exists() or rutaCsv.stat().st_size == 0:[m
+[31m-        return[m
+[31m-[m
+[31m-    with rutaCsv.open("r", newline="", encoding="utf-8") as archivo:[m
+[31m-        lector = csv.DictReader(archivo)[m
+[31m-[m
+[31m-        if lector.fieldnames != ENCABEZADOS_CSV:[m
+[31m-            raise ValueError
