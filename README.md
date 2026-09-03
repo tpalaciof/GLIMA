@@ -475,26 +475,86 @@ Los TXT contienen la misma información en tablas alineadas para facilitar la le
 
 ## ThingsBoard
 
-Los programas publican la telemetría por MQTT en:
+ThingsBoard se utiliza como plataforma de visualización remota de las mediciones procesadas por la Raspberry Pi. Los programas se conectan a ThingsBoard Cloud mediante MQTT y publican la telemetría en:
 
     mqtt.thingsboard.cloud
 
+La Raspberry Pi se autentica como dispositivo mediante el valor configurado en **ACCESS_TOKEN**. Este token permite publicar telemetría y es diferente del correo y la contraseña utilizados por una persona para entrar a la interfaz web.
+
+### Flujo de la telemetría
+
+Cada 30 segundos, el programa consolida los datos del intervalo, los guarda localmente y construye un mensaje con:
+
+- una marca de tiempo;
+- las variables disponibles;
+- los indicadores de calidad correspondientes.
+
+La estructura enviada a ThingsBoard es equivalente a:
+
+    {
+        "ts": 1788447600000,
+        "values": {
+            "lluvia_total_mm": 12.45,
+            "distancia_moda_mm": 1340,
+            "porcentaje_datos_correctos_lluvia": 100.0,
+            "porcentaje_datos_correctos_distancia": 96.67
+        }
+    }
+
+La propiedad **ts** corresponde al instante de la medición expresado en milisegundos desde Unix epoch. Se genera en la Raspberry Pi usando la zona horaria **America/Bogota**, de modo que ThingsBoard pueda ubicar correctamente cada dato en las series temporales.
+
+Las variables cuyo valor sea inexistente se omiten del mensaje. Esto evita enviar valores nulos como si fueran mediciones reales.
+
 ### Claves de la integración conjunta
 
-- lluvia_adicional_mm;
-- lluvia_evento_mm;
-- lluvia_total_mm;
-- intensidad_lluvia_mm_h;
-- distancia_moda_mm;
-- porcentaje_datos_correctos_lluvia;
-- porcentaje_datos_correctos_distancia.
+El programa **sensores_v4_dasboard.py** puede publicar:
+
+| Clave | Unidad | Descripción | Visualización sugerida |
+|---|---:|---|---|
+| lluvia_adicional_mm | mm | Lluvia adicional reportada en la consulta | Serie temporal o tarjeta |
+| lluvia_evento_mm | mm | Acumulado del evento de lluvia | Serie temporal |
+| lluvia_total_mm | mm | Acumulado total mantenido por el RG-15 | Serie temporal o tarjeta |
+| intensidad_lluvia_mm_h | mm/h | Intensidad instantánea de lluvia | Serie temporal o indicador |
+| distancia_moda_mm | mm | Moda de las distancias válidas del intervalo | Serie temporal |
+| porcentaje_datos_correctos_lluvia | % | Calidad acumulativa de los datos de lluvia | Indicador o medidor |
+| porcentaje_datos_correctos_distancia | % | Calidad acumulativa de los datos de distancia | Indicador o medidor |
+
+El RG-15 se consulta cada 60 segundos, mientras que los datos se guardan y se publican cada 30 segundos. Por esta razón, los valores de lluvia pueden mantenerse iguales entre dos consultas consecutivas del sensor.
 
 ### Claves del receptor XBee actual
 
-- distancia_moda_mm;
-- porcentaje_datos_correctos_distancia.
+El programa **distancia_xbee_esp32_v2_dashb_plus_csv.py** publica:
 
-Cada envío incluye una marca de tiempo generada en la Raspberry Pi. Si ThingsBoard no está disponible, la prioridad es conservar el registro local.
+| Clave | Unidad | Descripción | Visualización sugerida |
+|---|---:|---|---|
+| distancia_moda_mm | mm | Moda de las distancias recibidas por XBee durante el intervalo | Serie temporal |
+| porcentaje_datos_correctos_distancia | % | Calidad acumulativa de las filas de distancia | Indicador o medidor |
+
+### Acceso y visualización del dashboard
+
+Para consultar los datos:
+
+1. ingrese a [ThingsBoard Cloud](https://thingsboard.cloud/);
+2. inicie sesión con una cuenta autorizada del proyecto, suministrada de forma privada por el equipo G-LIMA;
+3. abra la sección **Dashboards**;
+4. seleccione el dashboard asociado a la estación o al dispositivo;
+5. ajuste el intervalo temporal de la visualización;
+6. revise las gráficas de lluvia y distancia y los indicadores de calidad.
+
+En el dashboard se recomienda utilizar:
+
+- gráficas de series temporales para observar la evolución de lluvia, intensidad y distancia;
+- tarjetas de valor más reciente para consultar el estado actual;
+- indicadores tipo gauge para los porcentajes de datos correctos;
+- selectores de intervalo temporal para analizar periodos específicos.
+
+Las credenciales de acceso web no deben confundirse con el **ACCESS_TOKEN** del dispositivo. Tampoco deben publicarse en el README ni almacenarse directamente en archivos del repositorio. Las personas autorizadas deben recibirlas mediante un canal privado.
+
+### Funcionamiento cuando ThingsBoard no está disponible
+
+Los archivos CSV y TXT constituyen el respaldo local de las mediciones. El receptor XBee está preparado para que una falla de conexión con ThingsBoard no impida el guardado local y para intentar restablecer la comunicación posteriormente.
+
+Los datos que no lleguen al dashboard deben verificarse en los archivos locales. La versión actual no realiza automáticamente una carga histórica de todas las filas que hayan quedado pendientes durante una interrupción; esa sincronización requeriría una función adicional.
 
 ## Comunicación XBee
 
