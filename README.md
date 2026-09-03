@@ -535,11 +535,17 @@ El programa **distancia_xbee_esp32_v2_dashb_plus_csv.py** publica:
 Para consultar los datos:
 
 1. ingrese a [ThingsBoard Cloud](https://thingsboard.cloud/);
-2. inicie sesión con una cuenta autorizada del proyecto, suministrada de forma privada por el equipo G-LIMA;
+2. inicie sesión con las siguientes credenciales de demostración:
+
+       Correo: user123@mail.com
+       Contraseña: hola1234
+
 3. abra la sección **Dashboards**;
 4. seleccione el dashboard asociado a la estación o al dispositivo;
 5. ajuste el intervalo temporal de la visualización;
 6. revise las gráficas de lluvia y distancia y los indicadores de calidad.
+
+Estas credenciales corresponden únicamente a una cuenta de demostración destinada a facilitar la visualización del proyecto.
 
 En el dashboard se recomienda utilizar:
 
