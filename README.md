@@ -535,26 +535,16 @@ El programa **distancia_xbee_esp32_v2_dashb_plus_csv.py** publica:
 Para consultar los datos:
 
 1. ingrese a [ThingsBoard Cloud](https://thingsboard.cloud/);
-2. inicie sesión con las siguientes credenciales de demostración:
+2. inicie sesión con las siguientes credenciales:
 
        Correo: user123@mail.com
        Contraseña: hola1234
 
-3. abra la sección **Dashboards**;
-4. seleccione el dashboard asociado a la estación o al dispositivo;
-5. ajuste el intervalo temporal de la visualización;
+4. seleccione el dashboard asociado a la estación o al dispositivo;;
 6. revise las gráficas de lluvia y distancia y los indicadores de calidad.
 
 Estas credenciales corresponden únicamente a una cuenta de demostración destinada a facilitar la visualización del proyecto.
 
-En el dashboard se recomienda utilizar:
-
-- gráficas de series temporales para observar la evolución de lluvia, intensidad y distancia;
-- tarjetas de valor más reciente para consultar el estado actual;
-- indicadores tipo gauge para los porcentajes de datos correctos;
-- selectores de intervalo temporal para analizar periodos específicos.
-
-Las credenciales de acceso web no deben confundirse con el **ACCESS_TOKEN** del dispositivo. Las credenciales anteriores son exclusivamente de demostración; las cuentas reales y los tokens de los dispositivos deben mantenerse privados y suministrarse únicamente por canales seguros.
 
 ### Funcionamiento cuando ThingsBoard no está disponible
 
