@@ -554,7 +554,7 @@ En el dashboard se recomienda utilizar:
 - indicadores tipo gauge para los porcentajes de datos correctos;
 - selectores de intervalo temporal para analizar periodos específicos.
 
-Las credenciales de acceso web no deben confundirse con el **ACCESS_TOKEN** del dispositivo. Tampoco deben publicarse en el README ni almacenarse directamente en archivos del repositorio. Las personas autorizadas deben recibirlas mediante un canal privado.
+Las credenciales de acceso web no deben confundirse con el **ACCESS_TOKEN** del dispositivo. Las credenciales anteriores son exclusivamente de demostración; las cuentas reales y los tokens de los dispositivos deben mantenerse privados y suministrarse únicamente por canales seguros.
 
 ### Funcionamiento cuando ThingsBoard no está disponible
 
